@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from matplotlib import colors as mplc
 
 
-
-# Default colors
 def color_palette(name="default",
                   desat=None,
                   alpha=None,
@@ -21,14 +19,14 @@ def color_palette(name="default",
         name:       Name of the palette.
         desat:      Desaturation factor. 0: full desaturation, 1: no change.
                     If a list, apply desaturation multiple times and combine
-                    the resulting list of colors. Note that desaturation drops
-                    the alpha channel!
+                    the resulting list of colors. 
         alpha:      Alpha value. 0: full transparency, 1: no change.
                     If a list, apply alpha multiple times and combine the
                     resulting list of colors.
         mix_color:  Mix the palette with a color. If None, no mixing is done.
                     Can be a string, a 3-tuple or a 4-tuple. Useful to create
-                    color sequences that match a certain background color.
+                    color sequences that match a certain background color. The
+                    alpha value of mix_color is enforced
         grouped:    If True, keep values grouped by desaturation and alpha.
                     Does not have any effect if desat or alpha are not lists.
         as_cmap:    If True, return a colormap (with n_colors=256)
@@ -58,10 +56,14 @@ def color_palette(name="default",
         palette = [ "#4592D5", "#2CAF9A", "#B35F5F", "#FFD700" ]
     else:
         palette = sns.color_palette(name, **sns_kwargs)
+        
+    # Convert to RGBA, with alpha=1 if A is not set
+    palette = [mplc.to_rgba(c) for c in palette]
 
     if desat is not None:
         if isinstance(desat, (float, int)):
             # desaturate() drops the alpha channel!
+            assert not any((len(c)==4 and c[3]<1.0) for c in palette)
             palette = [sns.desaturate(c, desat) for c in palette]
         elif isinstance(desat, (list, tuple)):
             if grouped:
@@ -80,8 +82,7 @@ def color_palette(name="default",
 
     if mix_color is not None:
         mix_color = mplc.to_rgba(mix_color)
-        palette = [mplc.to_rgba(c) for c in palette]
-        palette = [mix_colors_rgba(c, mix_color, mode="blend") for c in palette]
+        palette = [mix_colors_rgba(c, mix_color, mode="blend", gamma=1.0) for c in palette]
 
     if as_cmap and not isinstance(palette, mplc.Colormap):
         n = 256
@@ -97,7 +98,6 @@ def color_palette(name="default",
                                        mode="mix",
                                        n_steps=split_sizes[i])
         palette = mplc.ListedColormap(colors, name)
-
 
     if show:
         if isinstance(palette, mplc.Colormap):
@@ -133,7 +133,8 @@ def rgb_to_hex(rgb, scale=1):
     return '#'+bytes(rgb).hex()
 
 
-def mix_colors_rgba(color_a, color_b, mode="mix", t=None, gamma=2.2):
+def mix_colors_rgba(color_a, color_b, mode="mix", 
+                    t=None, gamma=2.2, alpha=None):
     """
     Mix two colors color_a and color_b.
 
@@ -144,19 +145,28 @@ def mix_colors_rgba(color_a, color_b, mode="mix", t=None, gamma=2.2):
                     "blend": Blend two translucent colors.
         t:          Mixing threshold.
         gamma:      Parameter to control the gamma correction.
+        alpha:      Fixed alpha value. If None, the alpha value is computed 
+                    according to mixing / blending rules.
 
     Returns:
         rgba:       A 4-tuple with the result color.
 
-    To reproduce Markus Jarderot's solution:
-            mix_colors_rgba(a, b, mode="blend", t=0, gamma=1.)
-    To reproduce Fordi's solution:
-            mix_colors_rgba(a, b, mode="mix", t=t, gamma=2.)
-    To compute the RGB color of a translucent color on white background:
-            mix_colors_rgba(a, [1,1,1,1], mode="blend", t=0, gamma=None)
+    Source / ideas: 
+        https://stackoverflow.com/questions/726549
+        
+        To reproduce Markus Jarderot's solution:
+                mix_colors_rgba(a, b, mode="blend", t=0, gamma=1.)
+        To reproduce Fordi's solution:
+                mix_colors_rgba(a, b, mode="mix", t=t, gamma=2.)
+        To compute the RGB color of a translucent color on white background:
+                mix_colors_rgba(a, [1,1,1,1], mode="blend", t=0, gamma=None)
     """
     assert(mode in ("mix", "blend"))
     assert(gamma is None or gamma>0)
+    if isinstance(color_a, str):
+        color_a = mplc.to_rgba(color_a)
+    if isinstance(color_b, str):
+        color_b = mplc.to_rgba(color_b)
     t = t if t is not None else (0.5 if mode=="mix" else 0.)
     t = max(0,min(t,1))
     color_a = np.asarray(color_a)
@@ -175,6 +185,8 @@ def mix_colors_rgba(color_a, color_b, mode="mix", t=None, gamma=2.2):
         elif gamma > 0:
             r, g, b, _ = np.power((1-s)*color_a**gamma + s*color_b**gamma,
                                   1/gamma)
+    if alpha is not None:
+        a = alpha
     return tuple(np.clip([r,g,b,a], 0, 1))
 
 
@@ -197,6 +209,25 @@ def color_transition(color_a, color_b, mode="mix", gamma=None,
                for t in ts]
     return palette
 
+def color_transitions(*colors, n_stseps=100, **kwargs):
+    """
+    Creates a color palette by interpolating between a list of colors.
+
+    Arguments:
+        *colors:    A list of colors.
+        mode:       "mix":   Interpolate between two colors.
+                    "blend": Blend two translucent colors.
+        gamma:      Parameter to control the gamma correction.
+        n_steps:    Number of steps in the interpolation.
+
+    Returns:
+        palette:    A list of colors.
+    """
+    palette = []    
+    for i in range(len(colors)-1):
+        palette += color_transition(colors[i], colors[i+1], **kwargs)
+    return palette
+
 
 def colors2plotly(colors, alpha=None):
     """
@@ -211,3 +242,4 @@ def colors2plotly(colors, alpha=None):
             return f"rgba{tuple(c[:3]+(a,))}"
 
     return [c2pRGBA(c, a=alpha) for c in colors] 
+

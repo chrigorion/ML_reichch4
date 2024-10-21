@@ -3,11 +3,39 @@ This module provides functions for displaying images using matplotlib.
 """
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from .fileio import ensure_dir
+from .colors import (color_palette, colors2plotly)
 from pathlib import Path
 
+
+# Default color palette of this package.
+PALETTE = color_palette("default", alpha=[0.8, 0.45, 0.15], mix_color="white")
+PALETTE_PLOTLY = colors2plotly(PALETTE)
+# PALETTE_RGB = [PALETTE[1], PALETTE[2], PALETTE[0]]
+
+
+# Set default color palett
+def setup_plotting(palette=None, **kwargs):
+    """
+    Adjusts the default plotting settings:
+    - Sets the color palette
+    """
+    import seaborn as sns
+    sns.set_style("whitegrid")
+    
+    import matplotlib.pyplot as plt
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=PALETTE)
+    #plt.rcParams["figure.figsize"] = (5, 3)
+    #plt.rcParams["figure.dpi"] = 300
+    for key, value in kwargs.items():
+        plt.rcParams[key] = value
+        
+    # For selectable text in PDFs
+    matplotlib.rc("pdf", fonttype=42)
+    
 
 def display_image(image=None, scale=None):
     """Displays an image using IPython capabilities."""
