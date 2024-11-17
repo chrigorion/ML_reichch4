@@ -3,6 +3,7 @@ This module provides functions for displaying images using matplotlib.
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import patches
@@ -12,19 +13,23 @@ from pathlib import Path
 
 
 # Default color palette of this package.
-PALETTE = color_palette("default", alpha=[0.8, 0.45, 0.15], mix_color="white")
+PALETTE = color_palette("default", alpha=[0.8, 0.45, 0.15], 
+                        mix_color="white")
+PALETTE_CMAP = color_palette("default", alpha=[0.8, 0.45, 0.15],
+                             mix_color="white", as_cmap=True)
 PALETTE_PLOTLY = colors2plotly(PALETTE)
 # PALETTE_RGB = [PALETTE[1], PALETTE[2], PALETTE[0]]
 
 
 # Set default color palett
-def setup_plotting(palette=None, **kwargs):
+def setup_plotting(palette=None, no_seaborn=False, **kwargs):
     """
     Adjusts the default plotting settings:
     - Sets the color palette
     """
-    import seaborn as sns
-    sns.set_style("whitegrid")
+    if not no_seaborn:
+        import seaborn as sns
+        sns.set_style("whitegrid")
     
     import matplotlib.pyplot as plt
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=PALETTE)
@@ -358,3 +363,88 @@ def save_figure(fig=None, path="figure.pdf", **kwargs):
     path = Path(path)
     ensure_dir(path.parent)
     plt.savefig(path, **kwargs)
+
+
+
+def plot_decision_boundary(clf, X, y, 
+                           X_test=None, y_test=None, 
+                           n_steps=1000, data=None, ax=None,
+                           legend="grouped"):
+    """
+    Plot the decision boundaries of a classifier with two features.
+    You don't need to understand the details of this function.
+    
+    Args:
+        clf: The classifier to plot.
+        X: The features of the dataset.
+        y: The labels of the dataset.
+        X_test: (optional) The features of the test dataset
+        y_test: (optional) The labels of the test dataset
+        n_steps: Parameter controlling the resolution of the plot.
+        ax: The axis to plot on. If None, a new figure is created.
+        data: Data structure provided by sklearn.datasets.load_iris().
+    """
+    assert isinstance(X, pd.DataFrame)
+    if ax is None:
+        _, ax = plt.subplots()
+    x1, x2 = X.iloc[:, 0], X.iloc[:, 1]
+    x1_min, x1_max = x1.min() - 1, x1.max() + 1
+    x2_min, x2_max = x2.min() - 1, x2.max() + 1
+    xx1, xx2 = np.meshgrid(
+        np.linspace(x1_min, x1_max, n_steps),
+        np.linspace(x2_min, x2_max, n_steps)
+    )
+    zz = clf.predict(pd.DataFrame(np.c_[xx1.ravel(), xx2.ravel()],
+                                  columns=X.columns))
+    zz = zz.reshape(xx1.shape)
+    ax.contourf(xx1, xx2, zz, cmap=plt.cm.RdYlBu, alpha=0.4) 
+    handles = []
+    for i, color in zip(range(3), "ryb"):
+        group = []
+        label = data.target_names[i] if data is not None else ("Class %d" % i)
+        h = ax.scatter(
+            x1[y == i],
+            x2[y == i],
+            color=color,
+            label=label,
+            edgecolor="black",
+            linewidth=0.25,
+            s=20,
+        )
+        group.append(h)
+        if X_test is not None and y_test is not None:
+            label = ((data.target_names[i] + " (test)") if data is not None 
+                    else ("Class %d (test)" % i))
+            label = None
+            h = ax.scatter(
+                X_test.iloc[:, 0][y_test == i],
+                X_test.iloc[:, 1][y_test == i],
+                color=color,
+                label=label,
+                edgecolor="black",
+                linewidth=0.25,
+                s=20,
+                marker="^",
+            )
+            group.append(h)
+        handles.append(tuple(group))
+    ax.set_xlabel(x1.name)
+    ax.set_ylabel(x2.name)
+    
+    # Add legend with different markers for test data, if present.
+    # https://matplotlib.org/stable/users/explain/axes/legend_guide.html
+    if legend == "grouped":
+        from matplotlib.legend_handler import HandlerTuple
+        suffix = ""
+        if X_test is not None and y_test is not None:
+            suffix = " (train/test)"
+        ax.legend(handles=handles, 
+                labels=[name+suffix for name in data.target_names],
+                handler_map={tuple: HandlerTuple(ndivide=None)},
+                fontsize="small")
+    elif legend == "simple":
+        ax.legend()
+    elif legend in ("none", False, None):
+        ax.legend().remove()
+    else:
+        raise ValueError("Invalid value for 'legend'.")

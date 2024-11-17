@@ -3,7 +3,9 @@ __author__ = "Norman Juchler"
 
 from .plotting import (save_figure,
                        setup_plotting,
+                       plot_decision_boundary,
                        PALETTE,
+                       PALETTE_CMAP,
                        PALETTE_PLOTLY)
 from .colors import (color_palette, 
                      colors2plotly, 
