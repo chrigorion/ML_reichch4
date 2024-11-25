@@ -10,6 +10,7 @@ def color_palette(name="default",
                   mix_color=None,
                   grouped=False,
                   as_cmap=False,
+                  n_cmap=256,
                   show=False,
                   sns_kwargs={}):
     """
@@ -29,7 +30,8 @@ def color_palette(name="default",
                     alpha value of mix_color is enforced
         grouped:    If True, keep values grouped by desaturation and alpha.
                     Does not have any effect if desat or alpha are not lists.
-        as_cmap:    If True, return a colormap (with n_colors=256)
+        as_cmap:    If True, return a colormap (with n_colors=n_cmap).
+        n_cmap:     Number of colors in the colormap (default: n_cmap=256).
         show:       If True, show the palette.
         sns_kwargs: Additional arguments forwarded to sns.color_palette().
 
@@ -56,6 +58,9 @@ def color_palette(name="default",
         palette = [ "#4592D5", "#2CAF9A", "#B35F5F", "#FFD700" ]
     else:
         palette = sns.color_palette(name, **sns_kwargs)
+        if not isinstance(name, str):
+            # Needed for ListedColormap below
+            name = "custom"
         
     # Convert to RGBA, with alpha=1 if A is not set
     palette = [mplc.to_rgba(c) for c in palette]
@@ -85,7 +90,7 @@ def color_palette(name="default",
         palette = [mix_colors_rgba(c, mix_color, mode="blend", gamma=1.0) for c in palette]
 
     if as_cmap and not isinstance(palette, mplc.Colormap):
-        n = 256
+        n = n_cmap
         splits = np.array_split(np.arange(n-1), len(palette))
         split_sizes = [len(s) for s in splits]
         colors = []
@@ -97,6 +102,7 @@ def color_palette(name="default",
             colors += color_transition(col_a, col_b,
                                        mode="mix",
                                        n_steps=split_sizes[i])
+        colors += [palette[-1]]
         palette = mplc.ListedColormap(colors, name)
 
     if show:

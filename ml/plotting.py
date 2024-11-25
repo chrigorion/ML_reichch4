@@ -15,8 +15,17 @@ from pathlib import Path
 # Default color palette of this package.
 PALETTE = color_palette("default", alpha=[0.8, 0.45, 0.15], 
                         mix_color="white")
-PALETTE_CMAP = color_palette("default", alpha=[0.8, 0.45, 0.15],
-                             mix_color="white", as_cmap=True)
+PALETTE_CMAP_CONT_BRG = color_palette(PALETTE,
+                                      mix_color="white", as_cmap=True)
+PALETTE_CMAP_CONT_RBG = color_palette([PALETTE[1],PALETTE[0], PALETTE[2]],
+                                      mix_color="white", as_cmap=True)
+PALETTE_CMAP_CONT_BR = color_palette(PALETTE[:2],
+                                     mix_color="black", as_cmap=True)
+PALETTE_CMAP_CONT_RG = color_palette(PALETTE[1:3],
+                                     mix_color="black", as_cmap=True)
+
+PALETTE_CMAP = color_palette("default",
+                             mix_color="white", as_cmap=True, n_cmap=3)
 PALETTE_PLOTLY = colors2plotly(PALETTE)
 # PALETTE_RGB = [PALETTE[1], PALETTE[2], PALETTE[0]]
 
@@ -33,6 +42,11 @@ def setup_plotting(palette=None, no_seaborn=False, **kwargs):
     
     import matplotlib.pyplot as plt
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=PALETTE)
+    plt.rcParams["axes.titleweight"] = 'bold'
+    plt.rcParams["grid.linestyle"] = '-'
+    plt.rcParams["grid.alpha"] = 0.4
+    
+    
     #plt.rcParams["figure.figsize"] = (5, 3)
     #plt.rcParams["figure.dpi"] = 300
     for key, value in kwargs.items():
